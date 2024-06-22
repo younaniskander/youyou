@@ -11,7 +11,7 @@ import tensorflow as tf
 # Load your model
 @st.cache_resource
 def load_my_model():
-    model = load_model('model.h5')
+    model = load_model('model_UNet.h5')
     return model
 
 model = load_my_model()
