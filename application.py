@@ -2,21 +2,11 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import time
-from streamlit import caching
 from PIL import Image
 from preprocessing_images import *
-from keras.models import load_model
-import tensorflow as tf
+from tensorflow.keras.models import load_model
 
-# Load your model
-@st.cache_resource
-def load_my_model():
-    model = load_model('model_UNet.h5')
-    return model
-
-model = load_my_model()
-
-st.title('Brain MRI Segmentation Application')
+st.title('Brain MRI segmentation application')
 
 st.markdown("***")
 
@@ -24,19 +14,12 @@ st.subheader('Upload the MRI scan of the brain')
 option = st.radio('', ('Single MRI scan', 'Multiple MRI scans'))
 st.write('You selected:', option)
 
-def preprocess_image(image):
-    # Convert the image to the format expected by the model
-    image = image.resize((224, 224))  # Assuming the model expects 224x224 input images
-    image = np.array(image)
-    if len(image.shape) == 2:  # if grayscale, convert to RGB
-        image = np.stack((image,)*3, axis=-1)
-    image = image / 255.0  # Normalize the image
-    image = np.expand_dims(image, axis=0)  # Add batch dimension
-    return image
+model = load_model('model.h5')  # Load your trained model
 
-def predict(image, model):
-    preprocessed_image = preprocess_image(image)
-    prediction = model.predict(preprocessed_image)
+def predict_tumor(img):
+    # Assuming your preprocessing function returns a numpy array suitable for prediction
+    processed_img = load_preprocess_image(str(img))
+    prediction = model.predict(np.expand_dims(processed_img, axis=0))
     return prediction
 
 if option == 'Single MRI scan':
@@ -44,31 +27,27 @@ if option == 'Single MRI scan':
     uploaded_file = st.file_uploader(' ', accept_multiple_files=False)
 
     if uploaded_file is not None:
-        image = Image.open(uploaded_file)
-        st.image(image, caption='Uploaded MRI Scan', use_column_width=True)
+        img = final_fun_1(uploaded_file)
+        st.image(img)
+        prediction = predict_tumor(img)
+        st.write(f"Prediction: {prediction}")
 
-        st.write("Classifying...")
-        prediction = predict(image, model)
-        st.write("Prediction: ", prediction)
-        
     else:
-        st.write("Make sure your image is in TIF/JPG/PNG Format.")
+        st.write("Make sure your image is in TIF/JPG/PNG format.")
 
 elif option == 'Multiple MRI scans':
     st.subheader('Upload the MRI scans of the brain')
     uploaded_files = st.file_uploader(' ', accept_multiple_files=True)
-    if len(uploaded_files) != 0:
+    if uploaded_files:
         st.write("Images Uploaded Successfully")
         for uploaded_file in uploaded_files:
-            image = Image.open(uploaded_file)
-            st.image(image, caption='Uploaded MRI Scan', use_column_width=True)
+            img = final_fun_1(uploaded_file)
+            st.image(img)
+            prediction = predict_tumor(img)
+            st.write(f"Prediction: {prediction}")
 
-            st.write("Classifying...")
-            prediction = predict(image, model)
-            st.write("Prediction: ", prediction)
-            
     else:
-        st.write("Make sure your images are in TIF/JPG/PNG Format.")
+        st.write("Make sure your images are in TIF/JPG/PNG format.")
 
 st.markdown("***")
 
