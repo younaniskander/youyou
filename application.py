@@ -1,97 +1,65 @@
 import streamlit as st
-import numpy as np
-import pandas as pd
-import time
+import tensorflow as tf
 from PIL import Image
-import matplotlib.pyplot as plt
-import random
-import cv2
-from tensorflow.keras.models import load_model
+import numpy as np
+import base64
+import io
 
-# Importing required functions and models from your preprocessing_images and efficient_Unet scripts
-from efficient_Unet import build_effienet_unet
+# Dummy user database
+users = {
+    "admin": "password123",
+    "user": "testpass"
+}
 
 st.title('Brain MRI Segmentation Application')
 
 st.markdown("***")
 
 st.subheader('Upload the MRI scan of the brain')
-option = st.radio('', ('Single MRI scan', 'Multiple MRI scans'))
-st.write('You selected:', option)
 
-# Load your trained models
-input_shape = (256, 256, 3)
-effienet_Unet_model = build_effienet_unet(input_shape)
-effienet_Unet_model.load_weights("tf_effienet_Unet_brain_final")
-model_UNet = load_model('model_UNet.h5')
+def preprocess_image(image, IMG_SIZE=(192, 192)):
+    """
+    Preprocess the image: resize and normalize.
+    Ensure that the processed image has 3 color channels (RGB).
+    """
+    # Resize the image to match the input shape expected by the model
+    image = image.resize(IMG_SIZE)
 
-def load_preprocess_image(img):
-    im = Image.open(img)
-    image = np.array(im)
-    image = image / 256.0
-    return image
+    # Convert the image to a numpy array
+    image_array = np.array(image)
 
-def predict_segmentation_mask(image_path, model):
-    """Reads a brain MRI image and returns the segmentation mask of the image."""
-    img = Image.open(image_path)
-    img = np.array(img)
-    img = cv2.resize(img, (256, 256))
-    img = np.array(img, dtype=np.float64)
-    img -= img.mean()
-    img /= img.std()
-    X = np.empty((1, 256, 256, 3))
-    X[0,] = img
-    predict = model.predict(X)
-    return predict.reshape(256, 256, 3)
+    # Ensure RGB format (remove alpha channel if present)
+    if image_array.shape[-1] == 4:
+        image_array = image_array[:, :, :3]
 
-def plot_MRI_predicted_mask(original_img, predicted_mask):
-    """Plots both the original image and predicted mask side by side."""
-    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(7, 5))
-    axes[0].imshow(original_img)
-    axes[0].get_xaxis().set_visible(False)
-    axes[0].get_yaxis().set_visible(False)
-    axes[0].set_title('Original MRI')
-    axes[1].imshow(predicted_mask)
-    axes[1].get_xaxis().set_visible(False)
-    axes[1].get_yaxis().set_visible(False)
-    axes[1].set_title('Predicted Mask')
-    fig.tight_layout()
-    filename = 'pair' + str(random.randint(100, 1000)) + str(random.randint(100, 1000)) + '.png'
-    plt.savefig(filename)
-    return filename
+    # Normalize pixel values to be between 0 and 1
+    normalized_image = image_array / 255.0
 
-def final_fun_1(image_path, model):
-    '''Input: Image path through the upload method.
-       Returns: combined image of original and predicted mask.
-    '''
-    image = load_preprocess_image(image_path)
-    mask = predict_segmentation_mask(image_path, model)
-    combined_img = plot_MRI_predicted_mask(original_img=image, predicted_mask=mask)
-    return combined_img
+    # Expand dimensions to match model input shape
+    processed_image = np.expand_dims(normalized_image, axis=0)
+    
+    return processed_image
 
-if option == 'Single MRI scan':
-    st.subheader('Upload the MRI scan of the brain')
-    uploaded_file = st.file_uploader(' ', accept_multiple_files=False)
-
+def model_page():
+    st.title("Lung Cancer Detection")
+    uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
     if uploaded_file is not None:
-        img = final_fun_1(uploaded_file, model_UNet)  # You can switch between model_UNet and effienet_Unet_model
-        st.image(img)
-    else:
-        st.write("Make sure your image is in TIF/JPG/PNG format.")
+        image = Image.open(uploaded_file)
+        st.image(image, caption='Uploaded Image', use_column_width=True)
+        processed_image = preprocess_image(image)
+        st.image(processed_image[0], caption='Processed Image', use_column_width=True)
+        model_path = 'model_Unet.h5'
+        model = tf.keras.models.load_model(model_path)
+        try:
+            prediction = model.predict(processed_image)
+            classes = ['normal', 'adenocarcinoma', 'large.cell', 'squamous']
+            predicted_class = classes[np.argmax(prediction)]
+            st.write('Prediction:', predicted_class)
+        except Exception as e:
+            st.error(f"Error predicting: {e}")
 
-elif option == 'Multiple MRI scans':
-    st.subheader('Upload the MRI scans of the brain')
-    uploaded_files = st.file_uploader(' ', accept_multiple_files=True)
-    if uploaded_files:
-        st.write("Images Uploaded Successfully")
-        for uploaded_file in uploaded_files:
-            img = final_fun_1(uploaded_file, model_UNet)  # You can switch between model_UNet and effienet_Unet_model
-            st.image(img)
-    else:
-        st.write("Make sure your images are in TIF/JPG/PNG format.")
+def main():
+    model_page()
 
-st.markdown("***")
-
-result = st.button('Try again')
-if result:
-    st.experimental_rerun()
+if __name__ == "__main__":
+    main()
