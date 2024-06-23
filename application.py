@@ -14,7 +14,7 @@ st.subheader('Upload the MRI scan of the brain')
 option = st.radio('', ('Single MRI scan', 'Multiple MRI scans'))
 st.write('You selected:', option)
 
-model = load_model('model.h5')  # Load your trained model
+model = load_model('model_UNet.h5')  # Load your trained model
 
 def predict_tumor(img):
     # Assuming your preprocessing function returns a numpy array suitable for prediction
