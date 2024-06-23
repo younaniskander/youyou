@@ -1,65 +1,39 @@
+from interface_tumor import *
 import streamlit as st
-import tensorflow as tf
-from PIL import Image
-import numpy as np
-import base64
-import io
+from utils import init_session_state_variables, dataset_unzip, rename_wrong_file, check_if_dataset_exists
+from UNet_2D import init_model
+from variables import data_path
 
-# Dummy user database
-users = {
-    "admin": "password123",
-    "user": "testpass"
-}
 
-st.title('Brain MRI Segmentation Application')
-
-st.markdown("***")
-
-st.subheader('Upload the MRI scan of the brain')
-
-def preprocess_image(image, IMG_SIZE=(192, 192)):
+def init_app():
     """
-    Preprocess the image: resize and normalize.
-    Ensure that the processed image has 3 color channels (RGB).
+    App Configuration
+    This functions sets & display the app title, its favicon, initialize some session_state values).
+    It also verifies that the dataset exists in the environment and well unzipped.
     """
-    # Resize the image to match the input shape expected by the model
-    image = image.resize(IMG_SIZE)
 
-    # Convert the image to a numpy array
-    image_array = np.array(image)
+    # Set config and app title
+    st.set_page_config(page_title="Image Segmentation", layout="wide", page_icon="🧠")
+    st.title("Brain Tumors Segmentation 🧠")
 
-    # Ensure RGB format (remove alpha channel if present)
-    if image_array.shape[-1] == 4:
-        image_array = image_array[:, :, :3]
+    # Initialize session state variables
+    init_session_state_variables()
 
-    # Normalize pixel values to be between 0 and 1
-    normalized_image = image_array / 255.0
+    # Unzip dataset if not already done
+    dataset_unzip()
 
-    # Expand dimensions to match model input shape
-    processed_image = np.expand_dims(normalized_image, axis=0)
-    
-    return processed_image
+    # Rename the 355th file if necessary (it has a default incorrect name)
+    rename_wrong_file(data_path)
 
-def model_page():
-    st.title("Lung Cancer Detection")
-    uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
-    if uploaded_file is not None:
-        image = Image.open(uploaded_file)
-        st.image(image, caption='Uploaded Image', use_column_width=True)
-        processed_image = preprocess_image(image)
-        st.image(processed_image[0], caption='Processed Image', use_column_width=True)
-        model_path = 'model_Unet.h5'
-        model = tf.keras.models.load_model(model_path)
-        try:
-            prediction = model.predict(processed_image)
-            classes = ['normal', 'adenocarcinoma', 'large.cell', 'squamous']
-            predicted_class = classes[np.argmax(prediction)]
-            st.write('Prediction:', predicted_class)
-        except Exception as e:
-            st.error(f"Error predicting: {e}")
+    # Check if the dataset exists in the environment to know if we can launch the app
+    check_if_dataset_exists()
 
-def main():
-    model_page()
+    # Create & compile the CNN (U-Net model)
+    model = init_model()
 
-if __name__ == "__main__":
-    main()
+    return model
+
+
+if __name__ == '__main__':
+    model = init_app()
+    launch_app(model)
